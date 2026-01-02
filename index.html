@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Sentinel Browser Pro</title>
+    <style>
+        :root { --main-color: #39ff14; }
+        
+        /* TEMEL AYARLAR */
+        body { 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            background: #0f0f0f; 
+            font-family: 'Segoe UI', sans-serif; 
+            color: white; 
+            overflow: hidden; 
+        }
+
+        /* SEKME ÇUBUĞU */
+        .tab-bar { 
+            background: #111; 
+            display: flex; 
+            gap: 5px; 
+            padding: 5px 10px 0 10px; 
+            border-bottom: 1px solid #333; 
+            align-items: flex-end; 
+            /* Sadece boş alanlar sürüklenebilir olsun */
+            -webkit-app-region: drag;
+        }
+        .tab { 
+            background: #222; 
+            padding: 8px 15px; 
+            border-radius: 8px 8px 0 0; 
+            cursor: pointer; 
+            font-size: 12px; 
+            min-width: 100px; 
+            max-width: 150px; 
+            text-align: center; 
+            border: 1px solid #333; 
+            border-bottom: none; 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            /* Sekmelere tıklanabilsin diye sürüklemeyi kapatıyoruz */
+            -webkit-app-region: no-drag; 
+        }
+        .tab.active { background: var(--main-color); color: black; font-weight: bold; }
+        .tab.incognito-tab { border-top: 2px solid #00d4ff; }
+        .close-tab { margin-left: 10px; cursor: pointer; font-weight: bold; opacity: 0.6; }
+        .close-tab:hover { opacity: 1; color: red; }
+        .add-tab-btn { 
+            background: #333; 
+            padding: 5px 12px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            margin-bottom: 5px; 
+            font-weight: bold; 
+            -webkit-app-region: no-drag; 
+        }
+
+        /* ÜST MENÜ (NAVIGASYON) */
+        .nav { 
+            background: #1a1a1a; 
+            padding: 10px 20px; 
+            display: flex; 
+            gap: 15px; 
+            align-items: center; 
+            border-bottom: 2px solid var(--main-color); 
+            position: relative; 
+            z-index: 1000; 
+            /* Navigasyon çubuğu sürüklenemesin, tıklanabilsin */
+            -webkit-app-region: no-drag; 
+        }
+        .brand { color: var(--main-color); font-weight: 900; cursor: pointer; font-size: 18px; letter-spacing: 1px; }
+        
+        /* URL INPUT - Tıklama sorunu için düzeltildi */
+        input#urlInput { 
+            flex: 1; 
+            padding: 10px 15px; 
+            border-radius: 20px; 
+            border: 1px solid #333; 
+            background: #252525; 
+            color: white; 
+            outline: none; 
+            font-size: 14px;
+            position: relative;
+            z-index: 9999; /* En üstte olduğundan emin ol */
+            -webkit-app-region: no-drag; /* Kesinlikle sürüklenemesin */
+            cursor: text;
+        }
+        input#urlInput:focus { border-color: var(--main-color); background: #333; }
+
+        .nav-btn { background: none; border: none; color: white; cursor: pointer; font-size: 20px; transition: 0.2s; -webkit-app-region: no-drag; }
+        .nav-btn:hover { color: var(--main-color); transform: scale(1.1); }
+
+        /* İÇERİK ALANI */
+        #content-area { flex: 1; position: relative; background: #000; overflow: hidden; }
+        .tab-content { width: 100%; height: 100%; position: absolute; top: 0; left: 0; display: none; flex-direction: column; }
+        .tab-content.active { display: flex; }
+
+        /* ANA EKRAN */
+        .home-screen { 
+            flex: 1; 
+            background: #0f0f0f; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 10; 
+            position: relative;
+        }
+        .hero-title { font-size: 70px; margin: 0; letter-spacing: 8px; color: white; text-shadow: 0 0 15px var(--main-color); user-select: none; }
+        
+        /* ORTA ARAMA KUTUSU - Tıklama sorunu için düzeltildi */
+        .search-container { 
+            display: flex; 
+            gap: 10px; 
+            width: 600px; 
+            margin-bottom: 40px; 
+            position: relative; 
+            z-index: 100; /* Sidebar'ın altında kalmasın ama yüksek olsun */
+            -webkit-app-region: no-drag; /* Sürüklemeyi engelle */
+        }
+        .home-search { 
+            flex: 1; 
+            padding: 15px 25px; 
+            border-radius: 30px; 
+            border: 2px solid #333; 
+            background: #1a1a1a; 
+            color: white; 
+            outline: none; 
+            font-size: 16px;
+            cursor: text;
+            pointer-events: auto; /* Tıklamayı zorla */
+        }
+        .home-search:focus { border-color: var(--main-color); }
+        .home-go-btn { background: var(--main-color); border: none; padding: 0 30px; border-radius: 30px; cursor: pointer; font-weight: bold; color: black; transition: 0.3s; -webkit-app-region: no-drag; }
+        .home-go-btn:hover { box-shadow: 0 0 15px var(--main-color); }
+
+        webview { width: 100%; height: 100%; display: none; background: white; }
+
+        /* YAN MENÜ (SIDEBAR) */
+        .sidebar { 
+            position: fixed; 
+            left: -220px; 
+            top: 60px; 
+            width: 240px; 
+            height: calc(100% - 60px); 
+            background: rgba(15,15,15,0.98); 
+            transition: 0.4s; 
+            z-index: 900; 
+            border-right: 1px solid var(--main-color); 
+            border-radius: 0 15px 15px 0; 
+            padding: 15px; 
+            backdrop-filter: blur(10px); 
+            display: flex; 
+            flex-direction: column; 
+            overflow-y: auto; 
+            -webkit-app-region: no-drag;
+        }
+        .sidebar:hover { left: 0; box-shadow: 5px 0 20px rgba(0,0,0,0.5); }
+        .sidebar-title { font-size: 10px; color: var(--main-color); margin: 15px 0 8px 0; font-weight: bold; text-transform: uppercase; border-bottom: 1px solid #333; }
+        .sidebar-item { padding: 8px; margin-bottom: 5px; background: #222; border-radius: 5px; cursor: pointer; font-size: 11px; text-align: left; transition: 0.2s; }
+        .sidebar-item:hover { background: var(--main-color); color: black; }
+        #sentinel-notes { width: 100%; height: 100px; background: #111; color: var(--main-color); border: 1px solid #333; border-radius: 5px; padding: 8px; font-size: 12px; resize: none; outline: none; }
+    </style>
+</head>
+<body>
+    <div class="tab-bar" id="tabBar">
+        <div class="add-tab-btn" onclick="addNewTab()">+</div>
+    </div>
+
+    <div class="nav">
+        <div class="brand" onclick="backToHome()">SENTINEL</div>
+        <button class="nav-btn" onclick="goBack()" title="Geri">❮</button>
+        <button class="nav-btn" id="starBtn" onclick="addBookmark()" title="Favorilere Ekle">★</button>
+        <button class="nav-btn" id="incognitoBtn" onclick="toggleIncognito()" title="Gizli Mod">👓</button>
+        
+        <input type="text" id="urlInput" placeholder="URL girin veya arama yapın...">
+        
+        <button onclick="go()" style="background:var(--main-color); border:none; padding:8px 20px; border-radius:15px; cursor:pointer; font-weight:bold; color:black; -webkit-app-region: no-drag;">GİT</button>
+    </div>
+
+    <div class="sidebar">
+        <div class="sidebar-title">TEMALAR 🎨</div>
+        <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+            <div class="sidebar-item" style="flex:1; background: #39ff14; color: black; text-align: center;" onclick="changeTheme('#39ff14')">YEŞİL</div>
+            <div class="sidebar-item" style="flex:1; background: #ff4500; color: white; text-align: center;" onclick="changeTheme('#ff4500')">TRNC</div>
+            <div class="sidebar-item" style="flex:1; background: #00d4ff; color: black; text-align: center;" onclick="changeTheme('#00d4ff')">MAVİ</div>
+        </div>
+        <div class="sidebar-title">NOTLAR 📝</div>
+        <textarea id="sentinel-notes" oninput="saveNotes()"></textarea>
+        
+        <div class="sidebar-title" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>GEÇMİŞ 🕒</span>
+            <span onclick="clearHistory()" style="cursor: pointer; color: #ff4500; font-size: 14px;" title="Geçmişi Temizle">🗑️</span>
+        </div>
+        <div id="history-list"></div>
+
+        <div class="sidebar-title">FAVORİLER ⭐</div>
+        <div id="bookmarks-list"></div>
+    </div>
+
+    <div id="content-area"></div>
+
+    <script>
+        let tabCount = 0; 
+        let activeTabId = null; 
+        let isIncognitoMode = false;
+
+        // Başlangıç Yüklemeleri
+        window.onload = () => {
+            document.getElementById('sentinel-notes').value = localStorage.getItem('sentinel_notes') || "";
+            changeTheme(localStorage.getItem('sentinel_theme') || '#39ff14');
+            refreshBookmarksUI(); 
+            refreshHistoryUI();
+        };
+
+        function changeTheme(color) {
+            document.documentElement.style.setProperty('--main-color', color);
+            localStorage.setItem('sentinel_theme', color);
+        }
+
+        function toggleIncognito() {
+            isIncognitoMode = !isIncognitoMode;
+            document.getElementById('incognitoBtn').style.color = isIncognitoMode ? "#00d4ff" : "white";
+            alert(isIncognitoMode ? "Gizli Mod Aktif! Hiçbir sekme geçmişe kaydedilmeyecek." : "Gizli Mod Kapatıldı.");
+        }
+
+        function addNewTab(url = 'about:blank') {
+            tabCount++; 
+            const tabId = 'tab-' + tabCount;
+            const createdInIncognito = isIncognitoMode;
+
+            // Sekme Butonu Oluşturma
+            const tabBtn = document.createElement('div');
+            tabBtn.className = 'tab' + (createdInIncognito ? ' incognito-tab' : '');
+            tabBtn.id = 'btn-' + tabId;
+            tabBtn.innerHTML = `${createdInIncognito ? '🕶️ ' : ''}Sekme ${tabCount} <span class="close-tab" onclick="closeTab(event, '${tabId}')">×</span>`;
+            tabBtn.onclick = () => switchTab(tabId);
+            document.getElementById('tabBar').insertBefore(tabBtn, document.querySelector('.add-tab-btn'));
+
+            // Sekme İçeriği Oluşturma
+            const container = document.createElement('div');
+            container.className = 'tab-content'; 
+            container.id = 'cont-' + tabId;
+            const isHome = (url === 'about:blank');
+            
+            // Ana Ekran ve Webview HTML
+            container.innerHTML = `
+                <div class="home-screen" id="home-${tabId}" style="display: ${isHome ? 'flex' : 'none'}">
+                    <h1 class="hero-title">${createdInIncognito ? 'GİZLİ' : 'SENTINEL'}</h1>
+                    <div class="search-container">
+                        <input type="text" class="home-search" placeholder="Google'da ara veya URL gir..." onkeypress="if(event.key === 'Enter') loadUrl(this.value)">
+                        <button class="home-go-btn" onclick="loadUrl(this.previousElementSibling.value)">ARA</button>
+                    </div>
+                </div>
+                <webview id="wv-${tabId}" src="${url}" partition="${createdInIncognito ? 'incognito_'+tabId : 'persist:trusted'}" style="display: ${isHome ? 'none' : 'flex'}"></webview>`;
+            
+            document.getElementById('content-area').appendChild(container);
+            
+            const wv = document.getElementById('wv-' + tabId);
+            
+            // Webview Yüklendiğinde
+            wv.addEventListener('did-finish-load', () => {
+                if (activeTabId === tabId) {
+                    const currentUrl = wv.getURL();
+                    // URL Çubuğunu Güncelle
+                    if(currentUrl !== 'about:blank') {
+                         document.getElementById('urlInput').value = currentUrl;
+                         const title = wv.getTitle();
+                         if(title) {
+                             document.getElementById('btn-' + tabId).innerHTML = `${createdInIncognito ? '🕶️ ' : ''}${title.substring(0, 10)}... <span class="close-tab" onclick="closeTab(event, '${tabId}')">×</span>`;
+                         }
+                    } else {
+                         document.getElementById('urlInput').value = '';
+                    }
+
+                    // Geçmişe Kaydetme Kontrolü
+                    if (!createdInIncognito && !isIncognitoMode && currentUrl !== "about:blank" && !currentUrl.startsWith('data:')) {
+                        addToHistory(currentUrl, wv.getTitle());
+                    }
+                }
+            });
+
+            wv.addEventListener('did-navigate', (e) => {
+                 if(activeTabId === tabId) document.getElementById('urlInput').value = e.url;
+            });
+
+            wv.addEventListener('page-title-updated', (e) => {
+                if(activeTabId === tabId) {
+                     const title = e.title;
+                     document.getElementById('btn-' + tabId).innerHTML = `${createdInIncognito ? '🕶️ ' : ''}${title.substring(0, 10)}... <span class="close-tab" onclick="closeTab(event, '${tabId}')">×</span>`;
+                }
+            });
+
+            switchTab(tabId);
+        }
+
+        function loadUrl(url) {
+            if(!url) return;
+            const wv = document.getElementById('wv-' + activeTabId);
+            const home = document.getElementById('home-' + activeTabId);
+            
+            let finalUrl = url;
+            if (!url.startsWith('http') && !url.startsWith('file') && !url.startsWith('data')) {
+                if (url.includes('.') && !url.includes(' ')) {
+                    finalUrl = 'https://' + url;
+                } else {
+                    finalUrl = 'https://www.google.com/search?q=' + encodeURIComponent(url);
+                }
+            }
+            
+            wv.src = finalUrl; 
+            wv.style.display = 'flex'; 
+            home.style.display = 'none';
+            document.getElementById('urlInput').value = finalUrl;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab, .tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById('btn-' + tabId).classList.add('active');
+            document.getElementById('cont-' + tabId).classList.add('active');
+            activeTabId = tabId;
+            
+            const wv = document.getElementById('wv-' + tabId);
+            if(wv && wv.getURL() && wv.getURL() !== 'about:blank') {
+                document.getElementById('urlInput').value = wv.getURL();
+            } else {
+                document.getElementById('urlInput').value = '';
+            }
+        }
+
+        function saveNotes() { 
+            localStorage.setItem('sentinel_notes', document.getElementById('sentinel-notes').value); 
+        }
+
+        function go() { 
+            loadUrl(document.getElementById('urlInput').value); 
+        }
+
+        function backToHome() {
+            const wv = document.getElementById('wv-' + activeTabId); 
+            wv.style.display = 'none';
+            document.getElementById('home-' + activeTabId).style.display = 'flex'; 
+            wv.src = 'about:blank';
+            document.getElementById('urlInput').value = '';
+            document.getElementById('btn-' + activeTabId).innerHTML = `${isIncognitoMode ? '🕶️ ' : ''}Ana Sayfa <span class="close-tab" onclick="closeTab(event, '${activeTabId}')">×</span>`;
+        }
+
+        function closeTab(e, tabId) { 
+            e.stopPropagation(); 
+            const btn = document.getElementById('btn-' + tabId);
+            const cont = document.getElementById('cont-' + tabId);
+            
+            if(btn) btn.remove(); 
+            if(cont) cont.remove(); 
+
+            if (activeTabId === tabId) {
+                const tabs = document.querySelectorAll('.tab'); 
+                if (tabs.length > 0) {
+                    switchTab(tabs[tabs.length-1].id.replace('btn-', ''));
+                } else {
+                    addNewTab(); 
+                }
+            }
+        }
+
+        function goBack() { 
+            const wv = document.getElementById('wv-' + activeTabId);
+            if(wv && wv.canGoBack()) wv.goBack(); 
+        }
+
+        // --- GEÇMİŞ YÖNETİMİ ---
+        
+        function clearHistory() {
+            if(confirm("Tüm tarama geçmişini silmek istediğinize emin misiniz?")) {
+                localStorage.removeItem('sentinel_history');
+                refreshHistoryUI();
+            }
+        }
+
+        function addToHistory(u, t) { 
+            let h = JSON.parse(localStorage.getItem('sentinel_history') || '[]');
+            if(h.length > 0 && h[0].url === u) return; 
+            
+            h.unshift({url:u, title:t || u}); 
+            localStorage.setItem('sentinel_history', JSON.stringify(h.slice(0,20))); 
+            refreshHistoryUI(); 
+        }
+
+        function refreshHistoryUI() { 
+            const list = JSON.parse(localStorage.getItem('sentinel_history') || '[]');
+            const container = document.getElementById('history-list');
+            container.innerHTML = '';
+            
+            list.forEach(x => {
+                const item = document.createElement('div');
+                item.className = 'sidebar-item';
+                item.innerText = (x.title || x.url).substring(0, 30) + '...';
+                item.onclick = () => loadUrl(x.url);
+                container.appendChild(item);
+            });
+        }
+
+        // --- FAVORİ SİSTEMİ ---
+        function addBookmark() {
+            const wv = document.getElementById('wv-' + activeTabId);
+            if(!wv) return;
+
+            const currentUrl = wv.getURL();
+            const currentTitle = wv.getTitle() || currentUrl;
+
+            if (!currentUrl || currentUrl === 'about:blank' || currentUrl.startsWith('data:')) {
+                alert("Sadece siteleri favorilere ekleyebilirsiniz.");
+                return;
+            }
+
+            let b = JSON.parse(localStorage.getItem('sentinel_bookmarks') || '[]');
+            if (b.some(item => item.url === currentUrl)) {
+                alert("Bu site zaten ekli.");
+                return;
+            }
+
+            b.push({url: currentUrl, name: currentTitle}); 
+            localStorage.setItem('sentinel_bookmarks', JSON.stringify(b)); 
+            refreshBookmarksUI();
+            
+            const btn = document.getElementById('starBtn');
+            const original = btn.style.color;
+            btn.style.color = '#ffff00';
+            setTimeout(() => btn.style.color = original, 500);
+        }
+
+        function refreshBookmarksUI() { 
+            let bookmarks = JSON.parse(localStorage.getItem('sentinel_bookmarks') || '[]');
+            const listContainer = document.getElementById('bookmarks-list');
+            listContainer.innerHTML = '';
+
+            bookmarks.forEach((x, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'sidebar-item';
+                itemDiv.style.display = 'flex';
+                itemDiv.style.justifyContent = 'space-between';
+                itemDiv.style.alignItems = 'center';
+
+                const linkSpan = document.createElement('span');
+                linkSpan.innerText = x.name.length > 20 ? x.name.substring(0, 18) + '...' : x.name;
+                linkSpan.style.flex = '1';
+                linkSpan.onclick = () => loadUrl(x.url);
+
+                const deleteBtn = document.createElement('span');
+                deleteBtn.innerHTML = '×';
+                deleteBtn.style.color = '#ff4500';
+                deleteBtn.style.fontWeight = 'bold';
+                deleteBtn.style.marginLeft = '8px';
+                deleteBtn.title = 'Sil';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteBookmark(index);
+                };
+
+                itemDiv.appendChild(linkSpan);
+                itemDiv.appendChild(deleteBtn);
+                listContainer.appendChild(itemDiv);
+            });
+        }
+
+        function deleteBookmark(index) {
+            let b = JSON.parse(localStorage.getItem('sentinel_bookmarks') || '[]');
+            b.splice(index, 1);
+            localStorage.setItem('sentinel_bookmarks', JSON.stringify(b));
+            refreshBookmarksUI();
+        }
+
+        addNewTab();
+        document.getElementById('urlInput').addEventListener("keypress", (e) => { if (e.key === "Enter") go(); });
+    </script>
+</body>
+</html>
